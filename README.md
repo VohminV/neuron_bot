@@ -31,7 +31,7 @@ Neuron Bot — это Telegram-бот, который обучается в ре
 
 2. Установите зависимости:
    ```bash
-   pip install python-telegram-bot wikipedia
+   pip install python-telegram-bot wikipedia transformers torch datasets
    ```
 
 3. Вставьте токен Telegram-бота в файл `bot.py` в переменную `BOT_TOKEN`.
