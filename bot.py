@@ -9,14 +9,19 @@ from transformers import (
     Trainer,
     TrainingArguments,
     DataCollatorForLanguageModeling,
+    AutoModelForQuestionAnswering,
 )
 from datasets import Dataset
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
+# Конфиги
 MODEL_NAME = "distilgpt2"
 FINETUNED_MODEL_DIR = "./finetuned_model"
-BOT_TOKEN = ""  # вставь свой токен
+BOT_TOKEN = ""
+
+# Модель для вопрос-ответ на русском, публичная и доступная
+QA_MODEL_NAME = "DeepPavlov/rubert-base-cased-sentiment"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 wikipedia.set_lang("ru")
@@ -79,7 +84,7 @@ def search_wikipedia(phrase):
     except Exception:
         return None
 
-# === Класс OnlineTrainer с chunk-файнтюнингом ===
+# === Онлайн дообучение GPT2 с чанками ===
 class OnlineTrainer:
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -148,8 +153,8 @@ class OnlineTrainer:
         )
         answer = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         generated_text = answer[len(prompt):].strip()
-        probs = self.get_token_probabilities(generated_text)
-        return generated_text, probs
+        token_probs = self.get_token_probabilities(generated_text)
+        return generated_text, token_probs
 
     def get_token_probabilities(self, text):
         encodings = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=1024)
@@ -166,13 +171,15 @@ class OnlineTrainer:
             token_probs.append(prob)
         return token_probs
 
-# === Telegram боты ===
+# === Telegram бот ===
 trainer = OnlineTrainer()
 learning_users = {}
 trained_questions = set()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я ИИ-бот с Википедией и онлайн обучением.")
+    await update.message.reply_text(
+        "Привет! Я ИИ-бот с Википедией и онлайн обучением. Задай мне вопрос."
+    )
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
